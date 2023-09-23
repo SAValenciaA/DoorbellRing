@@ -1,12 +1,23 @@
 #include "RTClib.h"
 
 #define uS_TO_S_FACTOR 1000000
+#define BELL_POWER_PIN 13
 
 RTC_DS1307 DS1307_RTC;
 BluetoothSerial BT;
 
 RTC_DATA_ATTR std::list int todaySchedule;
-RTC_DATA_ATTR int alarmIndex == 0;
+RTC_DATA_ATTR int alarmIndex = 0;
+RTC_DATA_ATTR int todaySchedule[];
+
+struct setAlarm {
+  int secondsFromMidnight;
+  string ringtone;
+  setAlarm(secondsFromMidnight, ringtone) {
+    this -> secondsFromMidnight = secondsFromMidnight;
+    this -> ringtone = ringtone;
+  }
+};
 
 
 void setup () {
@@ -34,6 +45,10 @@ void setup () {
   deserializeJson(schedule, schedule_stringify);
 }
 
+void wakeUpByTimer() {
+  
+}
+
 void wakeUpProcesses() {
   esp_sleep_wakeup_cause_t wakeup_reason;
 
@@ -42,7 +57,7 @@ void wakeUpProcesses() {
   switch(wakeup_reason){
     case ESP_SLEEP_WAKEUP_EXT0 : Serial.println("Wakeup caused by external signal using RTC_IO"); break;
     case ESP_SLEEP_WAKEUP_EXT1 : Serial.println("Wakeup caused by external signal using RTC_CNTL"); break;
-    case ESP_SLEEP_WAKEUP_TIMER : Serial.println("Wakeup caused by timer"); break;
+    case ESP_SLEEP_WAKEUP_TIMER : wakeUpByTimer(); break;
     case ESP_SLEEP_WAKEUP_TOUCHPAD : Serial.println("Wakeup caused by touchpad"); break;
     case ESP_SLEEP_WAKEUP_ULP : Serial.println("Wakeup caused by ULP program"); break;
     default : Serial.printf("Wakeup was not caused by deep sleep: %d\n",wakeup_reason); break;
@@ -58,13 +73,12 @@ void loop () {
   for(int i = 0; i< schedule.specificDate.length; i++) {
     // Check if the date is today
     if (now.year() == schedule.specificDate[i].year && now.day() == schedule.specificDate[i].day && now.mouth() == schedule.specificDate[i].mouth) {
-      //if it is, save how many seconds there is to wait till it's the time, in seconds
-      hourToSeconds = schedule.specificDate[i].hour() * 3600;
-      minutesToSeconds = schedule.specificDate[i].minutes() * 60;
-      TotalTime = hourToSeconds + minutesToSeconds + schedule.specificDate[i].seconds();
-      todaySchedule.push_front(TotalTime);
+      // If it is, save how many time there is to wait till it's time to ring it (starting from 00:00) and what ringtone it has, this is save as a structure called set alarm
+      todaySchedule.push_front(setAlarm(schedule.specificDate[i].secondsFromMidnight, schedule.specificDate[i].ringtone));
 
-      //and then delete that element (another thing i haven't done)
+      //and then delete that element 
+      auto specificDate = schedule.specificDate.begin() + i;
+      schedule.specificDate.erase(specificDate);
     }
   };
 
@@ -72,13 +86,18 @@ void loop () {
   concatenate(schedule.weeklyDates[now.dayOfTheWeek()], todaySchedule);
 
   // Here, i sort today's "alarms" from sooner to less sonner
-  std::sort(todaySchedule.begin(), todaySchedule.end());
+  std::sort(todaySchedule.begin(), todaySchedule.end(), [](const setAlarm& previusalarm, const setAlarm& nextalarm) { return previusalarm.secondsFromMidnight < nextalarm.secondsFromMidnight; });
 
   //seconds that have passed throught the day
   todaysSeconds = (now.hour() * 3600) + (now.minute() * 60) + now.seconds();
 
   //calculate the time that is to wait till the next alarm from now
-  timeToSleep = todaySchedule[alarmIndex] - todaysSeconds
+  timeToSleep = todaySchedule[alarmIndex].secondsFromMidnight - todaysSeconds;
+
+  // makes the esp32 wait for that long
+  esp_sleep_enable_timer_wakeup(timeToSleep * uS_TO_S_FACTOR);
+
+  wakeUpProcesses();
   
 }
 
