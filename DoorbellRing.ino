@@ -1,3 +1,13 @@
+// NOTAS:
+// 1. no guarde los setAlarms dentro del RTC_DATA_ATTR sino que solo sus pointers, por lo que tengo que actualizarlo para que si se guarde en la RTC_DATA_ATTR
+// 2. setAlarm no deberia ser una estructura, deberia ser una clase para utilizarla correctamente en el listado de todaySchedule
+// Cosas que hacer:
+// 1. Configurar el RTC module, la conexion bluetooth (solo cuando prende) y pedir el horarios semanal y particular, (Hecho, en setup)
+// 2. Revisar, en el listado de fechas especificas, cuales alarmas son para hoy y guardalo en todaySchedule junto al ya dado por el horario
+// 3. Comprobar si hay alarmas para hoy: caso afirmativo, 4.1; caso contrario: 4.2.
+// 4.2. Calcular tiempo de espera de media nocha del siguiente dia y dormir hasta entonces dormir. Al siguiente dia ir a 2
+// 4.1. Calcular tiempo de espera hasta esa alarma, dormir hasta entonces y hacer sonar la alarma al despertar, con el ringtone especifico
+// 5. Comprobar si quedan mas alarmas, si las quedan ir a 4.1, caso contrario ir a 4.2
 #include "RTClib.h"
 
 #define uS_TO_S_FACTOR 1000000
@@ -8,10 +18,10 @@ BluetoothSerial BT;
 
 RTC_DATA_ATTR std::list int todaySchedule;
 RTC_DATA_ATTR int alarmIndex = 0;
-RTC_DATA_ATTR int todaySchedule[];
+RTC_DATA_ATTR setAlarm todaySchedule[];
 
 struct setAlarm {
-  int secondsFromMidnight;
+  unsigned long long int secondsFromMidnight;
   string ringtone;
   setAlarm(secondsFromMidnight, ringtone) {
     this -> secondsFromMidnight = secondsFromMidnight;
