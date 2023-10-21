@@ -56,7 +56,25 @@ void setup () {
   deserializeJson(schedule, schedule_stringify);
 }
 
-void RingtoneActivation() {
+void RingtoneActivation(string ringtone) {
+
+  //Go over all the string that specify how the bell must sound with dots and spaces
+  for (i = 0; i < ringtone.lenght; i++) {
+    if(ringtone[i] == ".") {
+      // A dot sound for 1500 miliseconds
+      pinMode(BELL_POWER_PIN, HIGHT);
+      delay(1500);
+
+    } else if(ringtone[i] == " ") {
+
+      //A space is silence for 1000 miliseconds
+      pinMode(BELL_POWER_PIN, LOW);
+      delay(500);
+    }
+  }
+
+  //Turn it off
+  pinMode(BELL_POWER_PIN, LOW);
 
 }
 
@@ -70,9 +88,10 @@ void wakeUpByTimer() {
       alarmIndex += 1
       esp_sleep_enable_timer_wakeup(timeToSleep * uS_TO_S_FACTOR);
     }
-
+    // Here I ask if the next alarm is the last one
     if (todaySchedule.length - 1 = alarmIndex + 1) {
       timeToSleep = todaySchedule[alarmIndex + 1].secondsFromMidnight - todaySchedule[alarmIndex].secondsFromMidnight
+      //if it is, erase everything inside todaySchedule list, so the first condition in this function doesn't execute and continue the loop
       todaySchedule = []
       esp_sleep_enable_timer_wakeup(timeToSleep * uS_TO_S_FACTOR);
     }
@@ -113,6 +132,10 @@ void loop () {
     }
   };
 
+  //seconds that have passed throught the day
+  todaysSeconds = (now.hour() * 3600) + (now.minute() * 60) + now.seconds();
+
+  //If there's no alarm to make sound, just wait till the next day
   if (todaySchedule == []) {
     esp_sleep_enable_timer_wakeup((SECONDS_PER_DAY - todaysSeconds) * uS_TO_S_FACTOR)
   }
@@ -123,11 +146,12 @@ void loop () {
   // Here, i sort today's "alarms" from sooner to less sonner
   std::sort(todaySchedule.begin(), todaySchedule.end(), [](const setAlarm& previusalarm, const setAlarm& nextalarm) { return previusalarm.secondsFromMidnight < nextalarm.secondsFromMidnight; });
 
-  //seconds that have passed throught the day
-  todaysSeconds = (now.hour() * 3600) + (now.minute() * 60) + now.seconds();
 
   //calculate the time that is to wait till the next alarm from now
   timeToSleep = todaySchedule[alarmIndex].secondsFromMidnight - todaysSeconds;
+
+  //pass to the next alarm changing the index
+  alarmIndex += 1
 
   // makes the esp32 wait for that long
   esp_sleep_enable_timer_wakeup(timeToSleep * uS_TO_S_FACTOR);
