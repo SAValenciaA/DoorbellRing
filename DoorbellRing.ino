@@ -3,14 +3,15 @@
 // 2. setAlarm no deberia ser una estructura, deberia ser una clase para utilizarla correctamente en el listado de todaySchedule
 // Cosas que hacer:
 // 1. Configurar el RTC module, la conexion bluetooth (solo cuando prende) y pedir el horarios semanal y particular, (Hecho, en setup)
-// 2. Revisar, en el listado de fechas especificas, cuales alarmas son para hoy y guardalo en todaySchedule junto al ya dado por el horario
+// 2. Revisar, en el listado de fechas especificas, cuales alarmas son para hoy y guardalo en todaySchedule junto al ya dado por el horario (Hecho, posiblemente roto)
 // 3. Comprobar si hay alarmas para hoy: caso afirmativo, 4.1; caso contrario: 4.2.
-// 4.2. Calcular tiempo de espera de media nocha del siguiente dia y dormir hasta entonces dormir. Al siguiente dia ir a 2
+// 4.2. Calcular tiempo de espera de media nocha del siguiente dia y dormir hasta entonces. Al siguiente dia ir a 2
 // 4.1. Calcular tiempo de espera hasta esa alarma, dormir hasta entonces y hacer sonar la alarma al despertar, con el ringtone especifico
 // 5. Comprobar si quedan mas alarmas, si las quedan ir a 4.1, caso contrario ir a 4.2
 #include "RTClib.h"
 
 #define uS_TO_S_FACTOR 1000000
+#define SECONDS_PER_DAY 86400
 #define BELL_POWER_PIN 13
 
 RTC_DS1307 DS1307_RTC;
@@ -55,8 +56,28 @@ void setup () {
   deserializeJson(schedule, schedule_stringify);
 }
 
+void RingtoneActivation() {
+
+}
+
 void wakeUpByTimer() {
-  
+  if(todaySchedule != []) {
+    RingtoneActivation(todaySchedule[alarmIndex].ringtone);
+
+    // Here I ask if theres more alarmars set and continue to the next one
+    if (todaySchedule.length - 1 < alarmIndex + 1) {
+      timeToSleep = todaySchedule[alarmIndex + 1].secondsFromMidnight - todaySchedule[alarmIndex].secondsFromMidnight 
+      alarmIndex += 1
+      esp_sleep_enable_timer_wakeup(timeToSleep * uS_TO_S_FACTOR);
+    }
+
+    if (todaySchedule.length - 1 = alarmIndex + 1) {
+      timeToSleep = todaySchedule[alarmIndex + 1].secondsFromMidnight - todaySchedule[alarmIndex].secondsFromMidnight
+      todaySchedule = []
+      esp_sleep_enable_timer_wakeup(timeToSleep * uS_TO_S_FACTOR);
+    }
+
+  }
 }
 
 void wakeUpProcesses() {
@@ -68,7 +89,7 @@ void wakeUpProcesses() {
     case ESP_SLEEP_WAKEUP_EXT0 : Serial.println("Wakeup caused by external signal using RTC_IO"); break;
     case ESP_SLEEP_WAKEUP_EXT1 : Serial.println("Wakeup caused by external signal using RTC_CNTL"); break;
     case ESP_SLEEP_WAKEUP_TIMER : wakeUpByTimer(); break;
-    case ESP_SLEEP_WAKEUP_TOUCHPAD : Serial.println("Wakeup caused by touchpad"); break;
+    case ESP_SLEEP_WAKEUP_TOUCHPAD : bluetoothActivation(); break;
     case ESP_SLEEP_WAKEUP_ULP : Serial.println("Wakeup caused by ULP program"); break;
     default : Serial.printf("Wakeup was not caused by deep sleep: %d\n",wakeup_reason); break;
   }
@@ -79,7 +100,7 @@ void loop () {
   // ask for the actual time to the RTC module
   DateTime now = DS1307_RTC.now();
 
-  // Here, i check the "one use"d dates in the schedule
+  // Here, i check the "one use" dates in the schedule
   for(int i = 0; i< schedule.specificDate.length; i++) {
     // Check if the date is today
     if (now.year() == schedule.specificDate[i].year && now.day() == schedule.specificDate[i].day && now.mouth() == schedule.specificDate[i].mouth) {
@@ -91,6 +112,10 @@ void loop () {
       schedule.specificDate.erase(specificDate);
     }
   };
+
+  if (todaySchedule == []) {
+    esp_sleep_enable_timer_wakeup((SECONDS_PER_DAY - todaysSeconds) * uS_TO_S_FACTOR)
+  }
 
   // I've not made this function up, but it's suppost to  put the first array onto the second one
   concatenate(schedule.weeklyDates[now.dayOfTheWeek()], todaySchedule);
